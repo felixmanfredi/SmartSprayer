@@ -1,0 +1,1 @@
+copiare il file "ESP32_S3_MINI_N4R2.json" ed incollarlo in "C:\Users\user\.platformio\platforms\espressif32\boards". Sostituire "user" nel percorso con il nome del tuo utente attivo.
