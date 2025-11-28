@@ -4,13 +4,13 @@
 #include <Wire.h>
 #include <TFLI2C.h> 
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
+// #include <Adafruit_BME280.h>
 
 const char *BLE_SERVER_NAME = "HermaTech";
 const unsigned long SERIAL_BAUD = 115200;
 
-// Sensore BME280 - Temperatura, Umidità, Pressione
-Adafruit_BME280 bme;
+// // Sensore BME280 - Temperatura, Umidità, Pressione
+// Adafruit_BME280 bme;
 
 // Caratteristica GATT che pubblica i dati dei sensori
 const char *TELEMETRY_UUID = "38938a29-7798-4dd6-bca2-c8fc70f65bfc";
@@ -75,10 +75,10 @@ void setup() {
     for (;;); 
   }
 
-  if(!bme.begin(0x77)) {  
-    Serial.println("Impossibile trovare il sensore BME280. Controllare i collegamenti!");
-    while (1);
-  }
+  // if(!bme.begin(0x77)) {  
+  //   Serial.println("Impossibile trovare il sensore BME280. Controllare i collegamenti!");
+  //   while (1);
+  // }
 
   analogReadResolution(12); 
   analogSetPinAttenuation(BATT_SENSE, ADC_11db);  
@@ -160,9 +160,13 @@ void loop() {
 
   // Aggiorno i dati dei sensori
   lidar.getData(distance, 0x10); // 0x10 = cm
-  temperature = bme.readTemperature();
-  humidity = bme.readHumidity();
-  pressure = bme.readPressure() / 100.0F; 
+  // temperature = bme.readTemperature();
+  // humidity = bme.readHumidity();
+  // pressure = bme.readPressure() / 100.0F; 
+  temperature = 25.0;
+  humidity = 50.0;
+  pressure = 1013.25;
+
 
   vbat = readBatteryVoltage();
 
