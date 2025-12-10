@@ -58,12 +58,22 @@ const float BATT_DIVIDER = 2.0f;
 
 int rawPiezo = 0; 
 
-const int RMS_WINDOW = 10; 
-int rmsBuf[RMS_WINDOW]; 
-int rmsIdx = 0; 
-long rmsSumSq = 0; 
-const float RMS_THRESHOLD = 90.0;
-float rmsValue = 0;
+// FFT setup
+#define SAMPLES 512             
+#define SAMPLING_RATE 2048
+#define TARGET_FREQ 648.0f     
+#define BANDWIDTH 30.0f
+#define SOGLIA_ACCENSIONE 350.0  
+#define SOGLIA_SPEGNIMENTO 300.0   
+
+
+double vReal[SAMPLES];
+double vImag[SAMPLES];
+
+float maxMag;
+unsigned long lastChangeTime = 0;
+
+ArduinoFFT<double> FFT = ArduinoFFT<double>(vReal, vImag, SAMPLES, SAMPLING_RATE);
 
 
 // --- Funzioni ---
@@ -199,31 +209,63 @@ void drawLaserPage() {
 
 // Gestione dello stato del sistema (acceso/spento)
 
+float analisiFFT() {
+  // Acquisisce 512 campioni dal sensore piezo
+  for(int i = 0; i < SAMPLES; i++) {
+    vReal[i] = analogRead(PIEZO_SENSOR);
+    vImag[i] = 0;
+    delayMicroseconds(1000000 / SAMPLING_RATE);
+  }
 
-// Calcolo del valore RMS dal sensore piezoelettrico
-float calculateRMS(int raw) {
+  // Calcola FFT
+  FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);
+  FFT.compute(FFTDirection::Forward);
+  FFT.complexToMagnitude();
 
-  // --- RMS rolling ---
-  int oldest = rmsBuf[rmsIdx]; 
-  rmsSumSq -= (long)oldest * oldest; 
-  rmsBuf[rmsIdx] = raw; 
-  rmsSumSq += (long)raw * raw; 
-  rmsIdx = (rmsIdx + 1) % RMS_WINDOW; 
-  float rms = sqrt((float)rmsSumSq / RMS_WINDOW); 
-  return rms;
+  // Trova magnitudo intorno a 648 Hz
+  int targetBin = (int)(TARGET_FREQ * SAMPLES / SAMPLING_RATE);
+  int binWidth = (int)(BANDWIDTH * SAMPLES / SAMPLING_RATE);
+
+  double mag = 0;
+
+  // Cerca il picco entro ±BANDWIDTH
+  for(int i = targetBin - binWidth; i <= targetBin + binWidth; i++) {
+    if(i >= 0 && i < SAMPLES/2) {
+      if(vReal[i] > mag) {
+        mag = vReal[i];
+      }
+    }
+  }
+
+  return (float)mag;
 }
+
 
 void updateSystemState(long now) {
-  rawPiezo = analogRead(PIEZO_SENSOR);
-  rmsValue = calculateRMS(rawPiezo);
+  // Acquisisce magnitudo FFT a 648 Hz
+  maxMag = analisiFFT();
 
-  if (rmsValue > RMS_THRESHOLD) {
-    systemActive = true;
-  }
-  else {
-    systemActive = false;
+  bool newState = systemActive;
+
+  if (!systemActive && maxMag > SOGLIA_ACCENSIONE) {
+    newState = true;
+  } else if (systemActive && maxMag < SOGLIA_SPEGNIMENTO) {
+    newState = false;
   }
 
+  // Debounce: cambiamento solo dopo 200ms
+  if (newState != systemActive) {
+    if (now - lastChangeTime >= 200) {
+      systemActive = newState;
+      lastChangeTime = now;
+      
+      //Serial.printf("Sistema: %s (mag: %.1f)\n", systemActive ? "ACCESO" : "SPENTO", maxMag);
+    }
+  } else {
+    // Stato stabile, resetta timer
+    lastChangeTime = now;
+  }
 }
+
 
 

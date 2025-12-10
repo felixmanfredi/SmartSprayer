@@ -4,13 +4,13 @@
 #include <Wire.h>
 #include <TFLI2C.h> 
 #include <Adafruit_Sensor.h>
-// #include <Adafruit_BME280.h>
+#include <Adafruit_BME280.h>
 
 const char *BLE_SERVER_NAME = "HermaTech";
 const unsigned long SERIAL_BAUD = 115200;
 
-// // Sensore BME280 - Temperatura, Umidità, Pressione
-// Adafruit_BME280 bme;
+// Sensore BME280 - Temperatura, Umidità, Pressione
+Adafruit_BME280 bme;
 
 // Caratteristica GATT che pubblica i dati dei sensori
 const char *TELEMETRY_UUID = "38938a29-7798-4dd6-bca2-c8fc70f65bfc";
@@ -75,10 +75,10 @@ void setup() {
     for (;;); 
   }
 
-  // if(!bme.begin(0x77)) {  
-  //   Serial.println("Impossibile trovare il sensore BME280. Controllare i collegamenti!");
-  //   while (1);
-  // }
+  if(!bme.begin(0x77)) {  
+    Serial.println("Impossibile trovare il sensore BME280. Controllare i collegamenti!");
+    while (1);
+  }
 
   analogReadResolution(12); 
   analogSetPinAttenuation(BATT_SENSE, ADC_11db);  
@@ -160,38 +160,46 @@ void loop() {
 
   // Aggiorno i dati dei sensori
   lidar.getData(distance, 0x10); // 0x10 = cm
-  // temperature = bme.readTemperature();
-  // humidity = bme.readHumidity();
-  // pressure = bme.readPressure() / 100.0F; 
-  temperature = 25.0;
-  humidity = 50.0;
-  pressure = 1013.25;
+  distance = distance - LIDAR_OFFSET;
+  temperature = bme.readTemperature();
+  humidity = bme.readHumidity();
+  pressure = bme.readPressure() / 100.0F; 
 
 
   vbat = readBatteryVoltage();
 
-  // Gestione encoder per cambiare pagina
-  currentClkState = digitalRead(CLK_ENCODER);
-  if (currentClkState != lastClkState) {
-    if (digitalRead(DT_ENCODER) != currentClkState) {
-      // rotazione oraria
-      currentPage = PAGE_LASER;
-    } else {
-      // rotazione antioraria
-      currentPage = PAGE_INFO;
-    }
-  }
-  lastClkState = currentClkState;
+  // // Gestione encoder per cambiare pagina
+  // currentClkState = digitalRead(CLK_ENCODER);
+  // if (currentClkState != lastClkState) {
+  //   if (digitalRead(DT_ENCODER) != currentClkState) {
+  //     // rotazione oraria
+  //     currentPage = PAGE_LASER;
+  //   } else {
+  //     // rotazione antioraria
+  //     currentPage = PAGE_INFO;
+  //   }
+  // }
+  // lastClkState = currentClkState;
+
+  // // Gestione pulsante PB_SWITCH per i laser
+  // static bool lastSwitchState = HIGH;
+  // bool switchState = digitalRead(PB_SWITCH);
+  // if (lastSwitchState == HIGH && switchState == LOW && currentPage == PAGE_LASER) {
+  //   lasersOn = !lasersOn;
+  //   digitalWrite(LASER_1, lasersOn ? HIGH : LOW);
+  //   digitalWrite(LASER_2, lasersOn ? HIGH : LOW);
+  // }
+  // lastSwitchState = switchState;
+
 
   // Gestione pulsante PB_SWITCH per i laser
   static bool lastSwitchState = HIGH;
-  bool switchState = digitalRead(PB_SWITCH);
-  if (lastSwitchState == HIGH && switchState == LOW && currentPage == PAGE_LASER) {
+  bool switchState = digitalRead(PB_ENCODER);
+  if (lastSwitchState == HIGH && switchState == LOW) {
     lasersOn = !lasersOn;
     digitalWrite(LASER_1, lasersOn ? HIGH : LOW);
     digitalWrite(LASER_2, lasersOn ? HIGH : LOW);
   }
-  lastSwitchState = switchState;
 
 
   String SensorData;
